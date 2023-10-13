@@ -42,15 +42,20 @@ export const receiptToRlp = (receipt: TransactionReceipt): Uint8Array => {
 };
 
 export const setupEthRPCClient = (
-  rpcUrl: string = "https://docs-demo.quiknode.pro/"
+  rpcUrl: string = "https://sepolia.infura.io/v3/ee1e6d7e77c2415386766fa559769941"
+  // rpcUrl: string = "https://docs-demo.quiknode.pro/"
 ) => {
   return new Web3(rpcUrl);
 };
+
 
 export const generateTxReceiptProof = async (
   txId: string,
   instance: Web3
 ): Promise<{ proof: string[]; root: string; value: string }> => {
+
+  // assume event attached will be taken from index = 0 if exists
+  const eventIndex = 0;
   const receipt: TransactionReceipt = await instance.eth.getTransactionReceipt(
     txId
   );
@@ -75,11 +80,17 @@ export const generateTxReceiptProof = async (
     siblings,
     receipt.transactionIndex as number
   );
+
+  console.log(receipt.logs)
+  const event0 = receipt.logs[eventIndex];
+  const eventAsUint8Array = !!event0 ? encode([event0.address, event0.topics, event0.data]) : Uint8Array.from([]);
+
   const proofOutputHex = {
     proof: proofOutput.proof.map((node: Buffer) => node.toString("hex")),
     root: proofOutput.root.toString("hex"),
     index: encode(receipt.transactionIndex as number),
     value: proofOutput.value.toString("hex"),
+    event: Buffer.from(eventAsUint8Array).toString('hex'),
   };
   // console.log("🧮generated proof for tx: ", proofOutputHex.proof);
   console.log(
