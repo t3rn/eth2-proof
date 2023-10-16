@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const generate_proof_1 = require("./generate-proof");
+const proof_generator_1 = require("./proof-generator");
 const args = process.argv.slice(2);
+const proofGenerator = new proof_generator_1.ProofGenerator('https://sepolia.infura.io/v3/ee1e6d7e77c2415386766fa559769941');
 if (args.length) {
     switch (args[0]) {
         case 'state':
@@ -9,7 +10,8 @@ if (args.length) {
                 console.error('Usage: node script.js state <accountId> <storageId> <blockNumber>');
                 process.exit(1);
             }
-            (0, generate_proof_1.generateStateProof)(args[1], args[2], args[3], (0, generate_proof_1.setupEthRPCClient)())
+            proofGenerator
+                .generateStateProof(args[1], args[2], args[3])
                 .then(console.log)
                 .catch(console.error);
             break;
@@ -18,7 +20,8 @@ if (args.length) {
                 console.error('Usage: node script.js receipt <txId>');
                 process.exit(1);
             }
-            (0, generate_proof_1.generateTxReceiptProof)(args[1], (0, generate_proof_1.setupEthRPCClient)())
+            proofGenerator
+                .generateTxReceiptProof(args[1])
                 .then(console.log)
                 .catch(console.error);
             break;
@@ -27,7 +30,8 @@ if (args.length) {
                 console.error('Usage: node script.js transaction <txId>');
                 process.exit(1);
             }
-            (0, generate_proof_1.generateTransactionProof)(args[1], (0, generate_proof_1.setupEthRPCClient)())
+            proofGenerator
+                .generateTransactionProof(args[1])
                 .then(console.log)
                 .catch(console.error);
             break;
@@ -40,3 +44,4 @@ else {
     console.error('Please specify a command. Supported commands are state, receipt, transaction.');
     process.exit(1);
 }
+//# sourceMappingURL=cli.js.map

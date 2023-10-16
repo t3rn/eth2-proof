@@ -1,12 +1,12 @@
 {
   "name": "eth2-proof",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "./dist/proof-generator.js",
   "license": "MIT",
   "scripts": {
     "preinstall": "npm exec -- only-allow pnpm",
     "clean": "rm -rf ./dist",
-    "build": "pnpm run clean && tsc",
+    "build": "pnpm run clean && tsc --pretty",
     "fmt": "prettier --write src",
     "fmt:check": "prettier --check src"
   },
