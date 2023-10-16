@@ -91,7 +91,8 @@ export class ProofGenerator {
     return proofOutputHex
   }
 
-  /** The IPLD block is the consensus encoding of the transaction:
+  /**
+   * The IPLD block is the consensus encoding of the transaction:
    * Legacy transaction encoding: RLP([AccountNonce, GasPrice, GasLimit, Recipient, Amount, Data, V, R, S]).
    * The V, R, S elements of this transaction either represent a secp256k1 signature over KECCAK_256(RLP([AccountNonce, GasPrice, GasLimit, Recipient, Amount, Data])) OR over KECCAK_256(RLP([AccountNonce, GasPrice, GasLimit, Recipient, Amount, Data, ChainID, 0, 0])) as described by EIP-155.
    * Access list (EIP-2930) transaction encoding: 0x01 || RLP([ChainID, AccountNonce, GasPrice, GasLimit, Recipient, Amount, Data, AccessList, V, R, S].
@@ -100,39 +101,39 @@ export class ProofGenerator {
    * Dynamic fee (EIP-1559) transaction encoding: 0x02 || RLP([ChainID, AccountNonce, GasTipCap, maxFeePerGas, GasFeeCap, Recipient, Amount, Data, AccessList, V, R, S]
    * The V, R, S elements of this transaction represent a secp256k1 signature over KECCAK_256(0x02 || RLP([ChainID, AccountNonce, GasTipCap, maxFeePerGas, GasFeeCap, Recipient, Amount, Data, AccessList]
    */
-  static encodeTxAsValidRLP(transactionRPC: TransactionInfo): Buffer {
-    if (transactionRPC.type == 0 || transactionRPC.type === undefined) {
+  static encodeTxAsValidRLP(tx: TransactionInfo): Buffer {
+    if (tx.type == 0 || tx.type === undefined) {
       // Legacy transaction encoding: RLP([AccountNonce, GasPrice, GasLimit, Recipient, Amount, Data, V, R, S]).
       // The V, R, S elements of this transaction either represent a secp256k1 signature over KECCAK_256(RLP([AccountNonce, GasPrice, GasLimit, Recipient, Amount, Data])) OR over KECCAK_256(RLP([AccountNonce, GasPrice, GasLimit, Recipient, Amount, Data, ChainID, 0, 0])) as described by EIP-155.
       let legacyTransactionEncoded: Uint8Array = ProofGenerator.encode([
-        transactionRPC.nonce,
-        transactionRPC.gasPrice,
-        transactionRPC.gas,
-        transactionRPC.to || undefined,
-        transactionRPC.value,
-        transactionRPC.input,
-        transactionRPC.v,
-        transactionRPC.r,
-        transactionRPC.s,
+        tx.nonce,
+        tx.gasPrice,
+        tx.gas,
+        tx.to || undefined,
+        tx.value,
+        tx.input,
+        tx.v,
+        tx.r,
+        tx.s,
       ])
 
       return Buffer.from(legacyTransactionEncoded)
-    } else if (transactionRPC.type == 1) {
+    } else if (tx.type == 1) {
       // Access list (EIP-2930) transaction encoding: 0x01 || RLP([ChainID, AccountNonce, GasPrice, GasLimit, Recipient, Amount, Data, AccessList, V, R, S].
       // The V, R, S elements of this transaction represent a secp256k1 signature over KECCAK_256(0x01 || RLP([ChainID, AccountNonce, GasPrice, GasLimit, Recipient, Amount, Data, AccessList]).
       // || is the byte/byte-array concatenation operator.
       let accessListTransactionEncoded: Uint8Array = ProofGenerator.encode([
-        transactionRPC.chainId,
-        transactionRPC.nonce,
-        transactionRPC.gasPrice,
-        transactionRPC.gas,
-        transactionRPC.to || undefined,
-        transactionRPC.value,
-        transactionRPC.input,
-        transactionRPC.accessList,
-        transactionRPC.v,
-        transactionRPC.r,
-        transactionRPC.s,
+        tx.chainId,
+        tx.nonce,
+        tx.gasPrice,
+        tx.gas,
+        tx.to || undefined,
+        tx.value,
+        tx.input,
+        tx.accessList,
+        tx.v,
+        tx.r,
+        tx.s,
       ])
 
       const TRANSACTION_TYPE = 1
@@ -145,22 +146,22 @@ export class ProofGenerator {
         TRANSACTION_TYPE_BUFFER,
         accessListTransactionEncoded,
       ])
-    } else if (transactionRPC.type == 2) {
+    } else if (tx.type == 2) {
       // Dynamic fee (EIP-1559) transaction encoding: 0x02 || RLP([ChainID, AccountNonce, GasTipCap, maxFeePerGas, GasFeeCap, Recipient, Amount, Data, AccessList, V, R, S]
       // The V, R, S elements of this transaction represent a secp256k1 signature over KECCAK_256(0x02 || RLP([ChainID, AccountNonce, GasTipCap, maxFeePerGas, GasFeeCap, Recipient, Amount, Data, AccessList]
       let eip1559TransactionEncoded: Uint8Array = ProofGenerator.encode([
-        transactionRPC.chainId,
-        transactionRPC.nonce,
-        transactionRPC.maxPriorityFeePerGas,
-        transactionRPC.maxFeePerGas,
-        transactionRPC.gas, // gasFeeCap
-        transactionRPC.to || undefined,
-        transactionRPC.value,
-        transactionRPC.input,
-        transactionRPC.accessList,
-        transactionRPC.v,
-        transactionRPC.r,
-        transactionRPC.s,
+        tx.chainId,
+        tx.nonce,
+        tx.maxPriorityFeePerGas,
+        tx.maxFeePerGas,
+        tx.gas, // gasFeeCap
+        tx.to || undefined,
+        tx.value,
+        tx.input,
+        tx.accessList,
+        tx.v,
+        tx.r,
+        tx.s,
       ])
 
       const TRANSACTION_TYPE = 2
@@ -199,25 +200,25 @@ export class ProofGenerator {
   }
 
   async generateTransactionProof(txId: string) {
-    const transactionRPC: TransactionInfo =
+    const tx: TransactionInfo =
       await this.web3.eth.getTransaction(txId)
 
     console.log('⬅️found transaction matching ID: ', txId)
     const typedTransaction: TypedTransaction = TransactionFactory.fromTxData({
-      nonce: transactionRPC.nonce,
-      gasPrice: transactionRPC.gasPrice,
-      gasLimit: transactionRPC.gas,
-      to: transactionRPC.to || undefined,
-      value: transactionRPC.value,
-      data: transactionRPC.input,
-      v: transactionRPC.v,
-      r: transactionRPC.r,
-      s: transactionRPC.s,
-      type: transactionRPC.type,
+      nonce: tx.nonce,
+      gasPrice: tx.gasPrice,
+      gasLimit: tx.gas,
+      to: tx.to || undefined,
+      value: tx.value,
+      data: tx.input,
+      v: tx.v,
+      r: tx.r,
+      s: tx.s,
+      type: tx.type,
     })
     console.log('🔃serialized transaction to RLP form') // console.log if u will (seems too long to show in command line output) utils.toHex(typedTransaction.serialize())
     const block = await this.web3.eth.getBlock(
-      transactionRPC.blockHash as HexString32Bytes,
+      tx.blockHash as HexString32Bytes,
     )
     console.log('⬅️found block for receipt: ', block.hash, block.number)
     let siblings: TransactionInfo[] = await Promise.all(
@@ -230,12 +231,12 @@ export class ProofGenerator {
     console.log(`⬅️fetched all ${siblings.length} sibling transactions`)
     let proofOutput = await ProofGenerator.calculateTransactionProof(
       siblings,
-      transactionRPC.transactionIndex as number,
+      tx.transactionIndex as number,
     )
     const proofOutputHex = {
       proof: proofOutput.proof.map((node: Buffer) => node.toString('hex')),
       root: proofOutput.root.toString('hex'),
-      index: ProofGenerator.encode(transactionRPC.transactionIndex as number),
+      index: ProofGenerator.encode(tx.transactionIndex as number),
       value: proofOutput.value.toString('hex'),
     }
 
@@ -248,7 +249,7 @@ export class ProofGenerator {
     return proofOutputHex
   }
 
-  async getBlock(blockId: string, instance: any) {
+  async getBlock(blockId: string) {
     await sleep(2) // need to wait for RPC to by synced
     const block = await this.web3.eth.getBlock(blockId).catch((err: any) => {
       console.log('errrrr')
