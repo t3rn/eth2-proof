@@ -1,8 +1,12 @@
 {
   "name": "eth2-proof",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "main": "./dist/proof-generator.js",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MaciejBaj/eth2-proof"
+  },
   "scripts": {
     "preinstall": "npm exec -- only-allow pnpm",
     "clean": "rm -rf ./dist",
