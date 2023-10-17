@@ -14,11 +14,11 @@ Supports and checks against roots as per latest RLP-encoding; extended with supp
 
 ### get state proof
 
-`Usage: node build/commandLine.js state <accountId> <storageId> <blockNumber>`
+`Usage: node build/cli.js state <accountId> <storageId> <blockNumber>`
 
 ##### Example input:
 
-`tsc && node build/commandLine.js state "0xdfe97868233d1aa22e815a266982f2cf17685a27" "0x02" "latest" `
+`tsc && node build/cli.js state "0xdfe97868233d1aa22e815a266982f2cf17685a27" "0x02" "latest" `
 
 ##### Example output:
 
@@ -48,11 +48,11 @@ Supports and checks against roots as per latest RLP-encoding; extended with supp
 
 ### get receipt proof
 
-`Usage: node build/commandLine.js receipt <transactionId>`
+`Usage: node build/cli.js receipt <transactionId>`
 
 ##### Example input:
 
-`tsc && node build/commandLine.js receipt 0x569a367d4cea332568a00e1fa4389c1fc2d79a7be4224bef179716d768605bae`
+`tsc && node build/cli.js receipt 0x569a367d4cea332568a00e1fa4389c1fc2d79a7be4224bef179716d768605bae`
 
 ##### Example output:
 
@@ -78,11 +78,11 @@ Computed Root:  1fc3f6f35cd2d116fc1fcb611b55dc03dfebc6df6bbce905526a5889f503e49b
 
 ### get transaction proof
 
-`Usage: node build/commandLine.js transaction <transactionId>`
+`Usage: node build/cli.js transaction <transactionId>`
 
 ##### Example input:
 
-`tsc && node build/commandLine.js transaction 0x569a367d4cea332568a00e1fa4389c1fc2d79a7be4224bef179716d768605bae`
+`tsc && node build/cli.js transaction 0x569a367d4cea332568a00e1fa4389c1fc2d79a7be4224bef179716d768605bae`
 
 ##### Example output:
 
