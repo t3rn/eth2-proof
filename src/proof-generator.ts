@@ -40,28 +40,36 @@ export class ProofGenerator {
   }
 
   async generateTxReceiptProof(
-    txId: string,
+    txHash: string,
   ): Promise<{ proof: string[]; root: string; value: string }> {
     // assume event attached will be taken from index = 0 if exists
     const eventIndex = 0
     const receipt: TransactionReceipt =
-      await this.web3.eth.getTransactionReceipt(txId)
+      await this.web3.eth.getTransactionReceipt(txHash)
 
-    console.log('⬅️found receipt for tx: ', txId)
-    console.log('🔃parsed receipt to hex form') // console.log if u will (seems too long to show in command line output) utils.toHex(receiptToRlp(receipt))
+    console.log('⬅️ found receipt for tx: ', txHash)
+    console.log('🔃 parsed receipt to hex form') // console.log if u will (seems too long to show in command line output) utils.toHex(receiptToRlp(receipt))
     const block = await this.web3.eth.getBlock(
       receipt.blockHash as HexString32Bytes,
     )
-    console.log('⬅️found block for receipt: ', block.hash, block.number)
+    console.log('⬅️ found block for receipt: ', block.hash, block.number)
+    console.log(`🔃 fetch sibling tx receipts: ${block.transactions.length}`)
 
-    let siblings: TransactionReceipt[] = await Promise.all(
-      // @ts-ignore
-      block.transactions.map(async (txId: string) => {
-        let sibling: TransactionReceipt =
-          await this.web3.eth.getTransactionReceipt(txId)
-        return sibling
-      }),
-    )
+    // let siblings: TransactionReceipt[] = await Promise.all(
+    //   // @ts-ignore
+    //   block.transactions.map(async (txId: string) => {
+    //     let sibling: TransactionReceipt =
+    //       await this.web3.eth.getTransactionReceipt(txId)
+    //     return sibling
+    //   }),
+    // )
+    let siblings: TransactionReceipt[] = []
+    // @ts-ignore
+    for (let txHash of block.transactions) {
+      const sibling: TransactionReceipt =
+        await this.web3.eth.getTransactionReceipt(txHash as string)
+      siblings.push(sibling)
+    }
     console.log(`⬅️fetched all ${siblings.length} sibling transaction receipts`)
     const proofOutput = await ProofGenerator.calculateReceiptProof(
       siblings,
@@ -200,8 +208,7 @@ export class ProofGenerator {
   }
 
   async generateTransactionProof(txId: string) {
-    const tx: TransactionInfo =
-      await this.web3.eth.getTransaction(txId)
+    const tx: TransactionInfo = await this.web3.eth.getTransaction(txId)
 
     console.log('⬅️found transaction matching ID: ', txId)
     const typedTransaction: TypedTransaction = TransactionFactory.fromTxData({
@@ -217,9 +224,7 @@ export class ProofGenerator {
       type: tx.type,
     })
     console.log('🔃serialized transaction to RLP form') // console.log if u will (seems too long to show in command line output) utils.toHex(typedTransaction.serialize())
-    const block = await this.web3.eth.getBlock(
-      tx.blockHash as HexString32Bytes,
-    )
+    const block = await this.web3.eth.getBlock(tx.blockHash as HexString32Bytes)
     console.log('⬅️found block for receipt: ', block.hash, block.number)
     let siblings: TransactionInfo[] = await Promise.all(
       // @ts-ignore

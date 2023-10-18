@@ -6,7 +6,7 @@ export declare class ProofGenerator {
     constructor(rpcUrl: string);
     static encode(input: any): Uint8Array;
     static receiptToRlp(receipt: TransactionReceipt): Uint8Array;
-    generateTxReceiptProof(txId: string): Promise<{
+    generateTxReceiptProof(txHash: string): Promise<{
         proof: string[];
         root: string;
         value: string;
