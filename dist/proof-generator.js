@@ -77,7 +77,6 @@ class ProofGenerator {
             const eventIndex = 0;
             const receipt = yield this.web3.eth.getTransactionReceipt(txHash);
             this.logger.info({ txHash }, 'Found receipt for tx');
-            this.logger.info('🔃 parsed receipt to hex form'); // if u will (seems too long to show in command line output) utils.toHex(receiptToRlp(receipt))
             const block = yield this.web3.eth.getBlock(receipt.blockHash);
             this.logger.info({ blockHash: block.hash, blockNumber: block.number }, 'Found block for receipt');
             this.logger.info(`Fetching receipts for ${block.transactions.length} sibling transactions`);
@@ -212,7 +211,6 @@ class ProofGenerator {
                 s: tx.s,
                 type: tx.type,
             });
-            this.logger.info('Serialized transaction to RLP form'); // if u will (seems too long to show in command line output) utils.toHex(typedTransaction.serialize())
             const block = yield this.web3.eth.getBlock(tx.blockHash);
             this.logger.info({ blockHash: block.hash, blockNumber: block.number }, 'Found block for receipt');
             this.logger.info(`Fetching ${block.transactions.length} sibling transactions`);

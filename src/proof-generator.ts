@@ -52,7 +52,6 @@ export class ProofGenerator {
       await this.web3.eth.getTransactionReceipt(txHash)
 
     this.logger.info({ txHash }, 'Found receipt for tx')
-    this.logger.info('🔃 parsed receipt to hex form') // if u will (seems too long to show in command line output) utils.toHex(receiptToRlp(receipt))
     const block = await this.web3.eth.getBlock(
       receipt.blockHash as HexString32Bytes,
     )
@@ -232,7 +231,6 @@ export class ProofGenerator {
       s: tx.s,
       type: tx.type,
     })
-    this.logger.info('Serialized transaction to RLP form') // if u will (seems too long to show in command line output) utils.toHex(typedTransaction.serialize())
 
     const block = await this.web3.eth.getBlock(tx.blockHash as HexString32Bytes)
     this.logger.info(
