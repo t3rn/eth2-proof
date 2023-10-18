@@ -103,12 +103,12 @@ export declare class ProofGenerator {
         readonly uncles: string[];
         readonly hash?: string | undefined;
     }>;
-    static calculateReceiptProof(receipts: TransactionReceipt[], index: number): Promise<{
+    calculateReceiptProof(receipts: TransactionReceipt[], index: number): Promise<{
         proof: Buffer[];
         root: Buffer;
         value: Buffer;
     }>;
-    static calculateTransactionProof(transactions: TransactionInfo[], index: number): Promise<{
+    calculateTransactionProof(transactions: TransactionInfo[], index: number): Promise<{
         proof: Buffer[];
         root: Buffer;
         value: Buffer;
