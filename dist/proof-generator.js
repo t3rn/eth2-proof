@@ -68,21 +68,30 @@ class ProofGenerator {
         }
         return encodedLegacy;
     }
-    generateTxReceiptProof(txId) {
+    generateTxReceiptProof(txHash) {
         return __awaiter(this, void 0, void 0, function* () {
             // assume event attached will be taken from index = 0 if exists
             const eventIndex = 0;
-            const receipt = yield this.web3.eth.getTransactionReceipt(txId);
-            console.log('⬅️found receipt for tx: ', txId);
-            console.log('🔃parsed receipt to hex form'); // console.log if u will (seems too long to show in command line output) utils.toHex(receiptToRlp(receipt))
+            const receipt = yield this.web3.eth.getTransactionReceipt(txHash);
+            console.log('⬅️ found receipt for tx: ', txHash);
+            console.log('🔃 parsed receipt to hex form'); // console.log if u will (seems too long to show in command line output) utils.toHex(receiptToRlp(receipt))
             const block = yield this.web3.eth.getBlock(receipt.blockHash);
-            console.log('⬅️found block for receipt: ', block.hash, block.number);
-            let siblings = yield Promise.all(
+            console.log('⬅️ found block for receipt: ', block.hash, block.number);
+            console.log(`🔃 fetch sibling tx receipts: ${block.transactions.length}`);
+            // let siblings: TransactionReceipt[] = await Promise.all(
+            //   // @ts-ignore
+            //   block.transactions.map(async (txId: string) => {
+            //     let sibling: TransactionReceipt =
+            //       await this.web3.eth.getTransactionReceipt(txId)
+            //     return sibling
+            //   }),
+            // )
+            let siblings = [];
             // @ts-ignore
-            block.transactions.map((txId) => __awaiter(this, void 0, void 0, function* () {
-                let sibling = yield this.web3.eth.getTransactionReceipt(txId);
-                return sibling;
-            })));
+            for (let txHash of block.transactions) {
+                const sibling = yield this.web3.eth.getTransactionReceipt(txHash);
+                siblings.push(sibling);
+            }
             console.log(`⬅️fetched all ${siblings.length} sibling transaction receipts`);
             const proofOutput = yield ProofGenerator.calculateReceiptProof(siblings, receipt.transactionIndex);
             console.log(receipt.logs);
