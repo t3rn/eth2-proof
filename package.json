@@ -1,6 +1,6 @@
 {
-  "name": "eth2-proof",
-  "version": "0.1.0",
+  "name": "@t3rn/eth2-proof",
+  "version": "0.2.0",
   "main": "./dist/proof-generator.js",
   "license": "MIT",
   "repository": {
