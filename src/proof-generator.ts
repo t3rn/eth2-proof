@@ -4,13 +4,17 @@ import Web3, { TransactionReceipt } from 'web3'
 import { TransactionFactory, TypedTransaction } from 'web3-eth-accounts'
 import { HexString32Bytes, TransactionInfo } from 'web3-types'
 import * as utils from 'web3-utils'
+import { Logger, logger } from './logger'
 import { sleep } from './helpers'
 
 export class ProofGenerator {
   private readonly web3: Web3
+  private readonly logger: Logger
 
-  constructor(rpcUrl: string) {
+  constructor(rpcUrl: string, _logger?: Logger) {
     this.web3 = new Web3(rpcUrl)
+    const __logger = _logger ? _logger : logger
+    this.logger = __logger.child({ module: 'proofGenerator' })
   }
 
   static encode(input: any): Uint8Array {
@@ -47,36 +51,35 @@ export class ProofGenerator {
     const receipt: TransactionReceipt =
       await this.web3.eth.getTransactionReceipt(txHash)
 
-    console.log('⬅️ found receipt for tx: ', txHash)
-    console.log('🔃 parsed receipt to hex form') // console.log if u will (seems too long to show in command line output) utils.toHex(receiptToRlp(receipt))
+    this.logger.info({ txHash }, 'Found receipt for tx')
     const block = await this.web3.eth.getBlock(
       receipt.blockHash as HexString32Bytes,
     )
-    console.log('⬅️ found block for receipt: ', block.hash, block.number)
-    console.log(`🔃 fetch sibling tx receipts: ${block.transactions.length}`)
+    this.logger.info(
+      { blockHash: block.hash, blockNumber: block.number },
+      'Found block for receipt',
+    )
+    this.logger.info(
+      `Fetching receipts for ${block.transactions.length} sibling transactions`,
+    )
 
-    // let siblings: TransactionReceipt[] = await Promise.all(
-    //   // @ts-ignore
-    //   block.transactions.map(async (txId: string) => {
-    //     let sibling: TransactionReceipt =
-    //       await this.web3.eth.getTransactionReceipt(txId)
-    //     return sibling
-    //   }),
-    // )
     let siblings: TransactionReceipt[] = []
-    // @ts-ignore
+    // We need to fetch them one by one, because with a Promise.all() the request times out
+    // due to high number of transactions
     for (let txHash of block.transactions) {
       const sibling: TransactionReceipt =
         await this.web3.eth.getTransactionReceipt(txHash as string)
       siblings.push(sibling)
     }
-    console.log(`⬅️fetched all ${siblings.length} sibling transaction receipts`)
-    const proofOutput = await ProofGenerator.calculateReceiptProof(
+    this.logger.info(`Fetched ${siblings.length} sibling transaction receipts`)
+
+    const proofOutput = await this.calculateReceiptProof(
       siblings,
       receipt.transactionIndex as number,
     )
 
-    console.log(receipt.logs)
+    this.logger.debug(receipt.logs)
+
     const event0 = receipt.logs[eventIndex]
     const eventAsUint8Array = !!event0
       ? ProofGenerator.encode([event0.address, event0.topics, event0.data])
@@ -89,11 +92,13 @@ export class ProofGenerator {
       value: proofOutput.value.toString('hex'),
       event: Buffer.from(eventAsUint8Array).toString('hex'),
     }
-    // console.log("🧮generated proof for tx: ", proofOutputHex.proof);
-    console.log(
-      '🧮proof-calculated receipts root vs block receipts root: ',
-      '0x' + proofOutputHex.root,
-      block.receiptsRoot,
+
+    this.logger.info(
+      {
+        receiptsProofRoot: `0x${proofOutputHex.root}`,
+        blockReceiptsRoot: block.receiptsRoot,
+      },
+      'proof-calculated receipts root vs block receipts root',
     )
 
     return proofOutputHex
@@ -193,8 +198,11 @@ export class ProofGenerator {
     const block = await this.web3.eth.getBlock(blockNumber)
     const blockHash = block.hash
 
-    console.log('⬅️found block matching block number: ', blockNumber, blockHash)
-    console.log(`🔃block's state_root = ${block.stateRoot}`)
+    this.logger.info(
+      { blockNumber, blockHash },
+      'Found block matching block number',
+    )
+    this.logger.info(`Block state_root: ${block.stateRoot}`)
 
     let rpcProof = await this.web3.eth.getProof(
       accountId,
@@ -207,10 +215,10 @@ export class ProofGenerator {
     return rpcProof
   }
 
-  async generateTransactionProof(txId: string) {
-    const tx: TransactionInfo = await this.web3.eth.getTransaction(txId)
+  async generateTransactionProof(txHash: string) {
+    const tx: TransactionInfo = await this.web3.eth.getTransaction(txHash)
 
-    console.log('⬅️found transaction matching ID: ', txId)
+    this.logger.info('Found transaction matching ID: ', txHash)
     const typedTransaction: TypedTransaction = TransactionFactory.fromTxData({
       nonce: tx.nonce,
       gasPrice: tx.gasPrice,
@@ -223,18 +231,28 @@ export class ProofGenerator {
       s: tx.s,
       type: tx.type,
     })
-    console.log('🔃serialized transaction to RLP form') // console.log if u will (seems too long to show in command line output) utils.toHex(typedTransaction.serialize())
+
     const block = await this.web3.eth.getBlock(tx.blockHash as HexString32Bytes)
-    console.log('⬅️found block for receipt: ', block.hash, block.number)
-    let siblings: TransactionInfo[] = await Promise.all(
-      // @ts-ignore
-      block.transactions.map(async (txId: string) => {
-        let sibling: TransactionInfo = await this.web3.eth.getTransaction(txId)
-        return sibling
-      }),
+    this.logger.info(
+      { blockHash: block.hash, blockNumber: block.number },
+      'Found block for receipt',
     )
-    console.log(`⬅️fetched all ${siblings.length} sibling transactions`)
-    let proofOutput = await ProofGenerator.calculateTransactionProof(
+    this.logger.info(
+      `Fetching ${block.transactions.length} sibling transactions`,
+    )
+
+    let siblings: TransactionInfo[] = []
+    // We need to fetch them one by one, because with a Promise.all() the request times out
+    // due to high number of transactions
+    for (let txHash of block.transactions) {
+      const sibling: TransactionInfo = await this.web3.eth.getTransaction(
+        txHash as string,
+      )
+      siblings.push(sibling)
+    }
+    this.logger.info(`Fetched ${siblings.length} sibling transaction receipts`)
+
+    let proofOutput = await this.calculateTransactionProof(
       siblings,
       tx.transactionIndex as number,
     )
@@ -245,10 +263,12 @@ export class ProofGenerator {
       value: proofOutput.value.toString('hex'),
     }
 
-    console.log(
-      '🧮proof-calculated transactions root vs block transactions root: ',
-      '0x' + proofOutputHex.root,
-      block.transactionsRoot,
+    this.logger.info(
+      {
+        receiptsProofRoot: `0x${proofOutputHex.root}`,
+        blockReceiptsRoot: block.transactionsRoot,
+      },
+      'proof-calculated transactions root vs block transactions root',
     )
 
     return proofOutputHex
@@ -256,14 +276,15 @@ export class ProofGenerator {
 
   async getBlock(blockId: string) {
     await sleep(2) // need to wait for RPC to by synced
-    const block = await this.web3.eth.getBlock(blockId).catch((err: any) => {
-      console.log('errrrr')
-      console.log(err)
-    })
-    return block
+    try {
+      return await this.web3.eth.getBlock(blockId)
+    } catch (err) {
+      this.logger.error(err)
+      throw err
+    }
   }
 
-  static async calculateReceiptProof(
+  async calculateReceiptProof(
     receipts: TransactionReceipt[],
     index: number,
   ): Promise<{ proof: Buffer[]; root: Buffer; value: Buffer }> {
@@ -285,7 +306,7 @@ export class ProofGenerator {
       trie,
       Buffer.from(ProofGenerator.encode(index)),
     )
-    console.log('Computed Root: ', trie.root.toString('hex'))
+    this.logger.info('Computed Root: ', trie.root.toString('hex'))
     const verifyResult = await Trie.verifyProof(
       trie.root,
       Buffer.from(ProofGenerator.encode(index)),
@@ -303,7 +324,7 @@ export class ProofGenerator {
     }
   }
 
-  static async calculateTransactionProof(
+  async calculateTransactionProof(
     transactions: TransactionInfo[],
     index: number,
   ): Promise<{ proof: Buffer[]; root: Buffer; value: Buffer }> {

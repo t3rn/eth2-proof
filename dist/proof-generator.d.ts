@@ -1,9 +1,11 @@
 /// <reference types="node" />
 import { TransactionReceipt } from 'web3';
 import { TransactionInfo } from 'web3-types';
+import { Logger } from './logger';
 export declare class ProofGenerator {
     private readonly web3;
-    constructor(rpcUrl: string);
+    private readonly logger;
+    constructor(rpcUrl: string, _logger?: Logger);
     static encode(input: any): Uint8Array;
     static receiptToRlp(receipt: TransactionReceipt): Uint8Array;
     generateTxReceiptProof(txHash: string): Promise<{
@@ -34,13 +36,13 @@ export declare class ProofGenerator {
             readonly proof: string[];
         }[];
     }>;
-    generateTransactionProof(txId: string): Promise<{
+    generateTransactionProof(txHash: string): Promise<{
         proof: string[];
         root: string;
         index: Uint8Array;
         value: string;
     }>;
-    getBlock(blockId: string): Promise<void | {
+    getBlock(blockId: string): Promise<{
         readonly parentHash: string;
         readonly sha3Uncles: string;
         readonly miner: string;
@@ -101,12 +103,12 @@ export declare class ProofGenerator {
         readonly uncles: string[];
         readonly hash?: string | undefined;
     }>;
-    static calculateReceiptProof(receipts: TransactionReceipt[], index: number): Promise<{
+    calculateReceiptProof(receipts: TransactionReceipt[], index: number): Promise<{
         proof: Buffer[];
         root: Buffer;
         value: Buffer;
     }>;
-    static calculateTransactionProof(transactions: TransactionInfo[], index: number): Promise<{
+    calculateTransactionProof(transactions: TransactionInfo[], index: number): Promise<{
         proof: Buffer[];
         root: Buffer;
         value: Buffer;

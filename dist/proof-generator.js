@@ -41,10 +41,13 @@ const merkle_patricia_tree_1 = require("merkle-patricia-tree");
 const web3_1 = __importDefault(require("web3"));
 const web3_eth_accounts_1 = require("web3-eth-accounts");
 const utils = __importStar(require("web3-utils"));
+const logger_1 = require("./logger");
 const helpers_1 = require("./helpers");
 class ProofGenerator {
-    constructor(rpcUrl) {
+    constructor(rpcUrl, _logger) {
         this.web3 = new web3_1.default(rpcUrl);
+        const __logger = _logger ? _logger : logger_1.logger;
+        this.logger = __logger.child({ module: 'proofGenerator' });
     }
     static encode(input) {
         return input === '0xs0' ? rlp_1.default.encode(Buffer.alloc(0)) : rlp_1.default.encode(input);
@@ -73,28 +76,20 @@ class ProofGenerator {
             // assume event attached will be taken from index = 0 if exists
             const eventIndex = 0;
             const receipt = yield this.web3.eth.getTransactionReceipt(txHash);
-            console.log('⬅️ found receipt for tx: ', txHash);
-            console.log('🔃 parsed receipt to hex form'); // console.log if u will (seems too long to show in command line output) utils.toHex(receiptToRlp(receipt))
+            this.logger.info({ txHash }, 'Found receipt for tx');
             const block = yield this.web3.eth.getBlock(receipt.blockHash);
-            console.log('⬅️ found block for receipt: ', block.hash, block.number);
-            console.log(`🔃 fetch sibling tx receipts: ${block.transactions.length}`);
-            // let siblings: TransactionReceipt[] = await Promise.all(
-            //   // @ts-ignore
-            //   block.transactions.map(async (txId: string) => {
-            //     let sibling: TransactionReceipt =
-            //       await this.web3.eth.getTransactionReceipt(txId)
-            //     return sibling
-            //   }),
-            // )
+            this.logger.info({ blockHash: block.hash, blockNumber: block.number }, 'Found block for receipt');
+            this.logger.info(`Fetching receipts for ${block.transactions.length} sibling transactions`);
             let siblings = [];
-            // @ts-ignore
+            // We need to fetch them one by one, because with a Promise.all() the request times out
+            // due to high number of transactions
             for (let txHash of block.transactions) {
                 const sibling = yield this.web3.eth.getTransactionReceipt(txHash);
                 siblings.push(sibling);
             }
-            console.log(`⬅️fetched all ${siblings.length} sibling transaction receipts`);
-            const proofOutput = yield ProofGenerator.calculateReceiptProof(siblings, receipt.transactionIndex);
-            console.log(receipt.logs);
+            this.logger.info(`Fetched ${siblings.length} sibling transaction receipts`);
+            const proofOutput = yield this.calculateReceiptProof(siblings, receipt.transactionIndex);
+            this.logger.debug(receipt.logs);
             const event0 = receipt.logs[eventIndex];
             const eventAsUint8Array = !!event0
                 ? ProofGenerator.encode([event0.address, event0.topics, event0.data])
@@ -106,8 +101,10 @@ class ProofGenerator {
                 value: proofOutput.value.toString('hex'),
                 event: Buffer.from(eventAsUint8Array).toString('hex'),
             };
-            // console.log("🧮generated proof for tx: ", proofOutputHex.proof);
-            console.log('🧮proof-calculated receipts root vs block receipts root: ', '0x' + proofOutputHex.root, block.receiptsRoot);
+            this.logger.info({
+                receiptsProofRoot: `0x${proofOutputHex.root}`,
+                blockReceiptsRoot: block.receiptsRoot,
+            }, 'proof-calculated receipts root vs block receipts root');
             return proofOutputHex;
         });
     }
@@ -190,18 +187,18 @@ class ProofGenerator {
             // Get the state root hash
             const block = yield this.web3.eth.getBlock(blockNumber);
             const blockHash = block.hash;
-            console.log('⬅️found block matching block number: ', blockNumber, blockHash);
-            console.log(`🔃block's state_root = ${block.stateRoot}`);
+            this.logger.info({ blockNumber, blockHash }, 'Found block matching block number');
+            this.logger.info(`Block state_root: ${block.stateRoot}`);
             let rpcProof = yield this.web3.eth.getProof(accountId, [storageId], blockNumber);
             // @ts-ignore
             rpcProof.blockStateRoot = block.stateRoot;
             return rpcProof;
         });
     }
-    generateTransactionProof(txId) {
+    generateTransactionProof(txHash) {
         return __awaiter(this, void 0, void 0, function* () {
-            const tx = yield this.web3.eth.getTransaction(txId);
-            console.log('⬅️found transaction matching ID: ', txId);
+            const tx = yield this.web3.eth.getTransaction(txHash);
+            this.logger.info('Found transaction matching ID: ', txHash);
             const typedTransaction = web3_eth_accounts_1.TransactionFactory.fromTxData({
                 nonce: tx.nonce,
                 gasPrice: tx.gasPrice,
@@ -214,38 +211,44 @@ class ProofGenerator {
                 s: tx.s,
                 type: tx.type,
             });
-            console.log('🔃serialized transaction to RLP form'); // console.log if u will (seems too long to show in command line output) utils.toHex(typedTransaction.serialize())
             const block = yield this.web3.eth.getBlock(tx.blockHash);
-            console.log('⬅️found block for receipt: ', block.hash, block.number);
-            let siblings = yield Promise.all(
-            // @ts-ignore
-            block.transactions.map((txId) => __awaiter(this, void 0, void 0, function* () {
-                let sibling = yield this.web3.eth.getTransaction(txId);
-                return sibling;
-            })));
-            console.log(`⬅️fetched all ${siblings.length} sibling transactions`);
-            let proofOutput = yield ProofGenerator.calculateTransactionProof(siblings, tx.transactionIndex);
+            this.logger.info({ blockHash: block.hash, blockNumber: block.number }, 'Found block for receipt');
+            this.logger.info(`Fetching ${block.transactions.length} sibling transactions`);
+            let siblings = [];
+            // We need to fetch them one by one, because with a Promise.all() the request times out
+            // due to high number of transactions
+            for (let txHash of block.transactions) {
+                const sibling = yield this.web3.eth.getTransaction(txHash);
+                siblings.push(sibling);
+            }
+            this.logger.info(`Fetched ${siblings.length} sibling transaction receipts`);
+            let proofOutput = yield this.calculateTransactionProof(siblings, tx.transactionIndex);
             const proofOutputHex = {
                 proof: proofOutput.proof.map((node) => node.toString('hex')),
                 root: proofOutput.root.toString('hex'),
                 index: ProofGenerator.encode(tx.transactionIndex),
                 value: proofOutput.value.toString('hex'),
             };
-            console.log('🧮proof-calculated transactions root vs block transactions root: ', '0x' + proofOutputHex.root, block.transactionsRoot);
+            this.logger.info({
+                receiptsProofRoot: `0x${proofOutputHex.root}`,
+                blockReceiptsRoot: block.transactionsRoot,
+            }, 'proof-calculated transactions root vs block transactions root');
             return proofOutputHex;
         });
     }
     getBlock(blockId) {
         return __awaiter(this, void 0, void 0, function* () {
             yield (0, helpers_1.sleep)(2); // need to wait for RPC to by synced
-            const block = yield this.web3.eth.getBlock(blockId).catch((err) => {
-                console.log('errrrr');
-                console.log(err);
-            });
-            return block;
+            try {
+                return yield this.web3.eth.getBlock(blockId);
+            }
+            catch (err) {
+                this.logger.error(err);
+                throw err;
+            }
         });
     }
-    static calculateReceiptProof(receipts, index) {
+    calculateReceiptProof(receipts, index) {
         return __awaiter(this, void 0, void 0, function* () {
             let trie = new merkle_patricia_tree_1.BaseTrie();
             for (let i = 0; i < receipts.length; i++) {
@@ -255,7 +258,7 @@ class ProofGenerator {
                 yield trie.put(Buffer.from(keyAsRlpEncodedTxIndex), Buffer.from(valueAsRlpEncodedReceipt));
             }
             const proof = yield merkle_patricia_tree_1.BaseTrie.createProof(trie, Buffer.from(ProofGenerator.encode(index)));
-            console.log('Computed Root: ', trie.root.toString('hex'));
+            this.logger.info('Computed Root: ', trie.root.toString('hex'));
             const verifyResult = yield merkle_patricia_tree_1.BaseTrie.verifyProof(trie.root, Buffer.from(ProofGenerator.encode(index)), proof);
             if (verifyResult === null) {
                 throw new Error('Proof is invalid');
@@ -268,7 +271,7 @@ class ProofGenerator {
             };
         });
     }
-    static calculateTransactionProof(transactions, index) {
+    calculateTransactionProof(transactions, index) {
         return __awaiter(this, void 0, void 0, function* () {
             let trie = new merkle_patricia_tree_1.BaseTrie();
             for (let i = 0; i < transactions.length; i++) {
